@@ -8,8 +8,8 @@ from nonmouse.detector import HandDetector
 from nonmouse.gesture import GestureController
 
 parser = argparse.ArgumentParser(description="NonMouse — modo otimizado sem interface grafica")
-parser.add_argument("--camera", type=int, default=0, help="Indice da camera (padrao: 0)")
-parser.add_argument("--kando", type=float, default=30.0, help="Sensibilidade do cursor (padrao: 30)")
+parser.add_argument("--camera", type=int, default=1, help="Indice da camera")
+parser.add_argument("--kando", type=float, default=10.0, help="Sensibilidade do cursor")
 parser.add_argument("--headless", action="store_true", help="Desativa a janela de video")
 args = parser.parse_args()
 

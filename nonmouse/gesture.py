@@ -93,8 +93,7 @@ class GestureController:
         else:
             self._right_click = 0
 
-        is_scroll = lm[8].y - lm[5].y > -0.06
-        if spread >= _CLICK_DIST and not is_scroll:
+        if spread >= _CLICK_DIST:
             try:
                 self._mouse.move(dx, dy)
             except Exception:
@@ -121,10 +120,6 @@ class GestureController:
             self._mouse.press(Button.right)
             self._mouse.release(Button.right)
             self._h = 1
-
-        if is_scroll:
-            self._mouse.scroll(0, -dy / 50)
-            draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 20, (0, 0, 0))
 
         self._pre_click = self._now_click
         self._pre_right = self._right_click

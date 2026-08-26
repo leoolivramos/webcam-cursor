@@ -38,7 +38,7 @@ def _distance(a: Landmark, b: Landmark) -> float:
 class HandDetector:
     """Encapsula o HandLandmarker do mediapipe com suporte a IMAGE e VIDEO."""
 
-    def __init__(self, mode: str = "IMAGE", confidence: float = 0.8):
+    def __init__(self, mode: str = "IMAGE", confidence: float = 0.8, num_hands: int = 2):
         _ensure_model()
         running_mode = (
             mp_vision.RunningMode.VIDEO
@@ -48,7 +48,7 @@ class HandDetector:
         options = HandLandmarkerOptions(
             base_options=mp_python.BaseOptions(model_asset_path=MODEL_PATH),
             running_mode=running_mode,
-            num_hands=1,
+            num_hands=num_hands,
             min_hand_detection_confidence=confidence,
             min_hand_presence_confidence=confidence,
             min_tracking_confidence=confidence,
@@ -67,6 +67,12 @@ class HandDetector:
             [Landmark(p.x, p.y, p.z) for p in hand]
             for hand in result.hand_landmarks
         ]
+
+    def get_closest_hand(self, hands: list[list[Landmark]]) -> list[Landmark] | None:
+        """Retorna a mao mais proxima da camera (maior tamanho aparente no frame)."""
+        if not hands:
+            return None
+        return max(hands, key=lambda hand: _distance(hand[0], hand[9]))
 
     def distance(self, a: Landmark, b: Landmark) -> float:
         return _distance(a, b)

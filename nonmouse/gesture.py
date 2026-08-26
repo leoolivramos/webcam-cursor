@@ -7,7 +7,7 @@ from .detector import HandDetector, Landmark
 from .drawing import draw_circle, draw_landmarks
 from .screen import get_virtual_screen
 
-_CLICK_DIST = 0.7
+_CLICK_DIST = 0.65
 
 
 class GestureController:

@@ -43,7 +43,7 @@ def main(cam_index: int, mode: int, sensitivity: float) -> None:
     cfps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
     ran = max(cfps // 10, 1)
 
-    detector = HandDetector(mode="IMAGE", confidence=0.8)
+    detector = HandDetector(mode="IMAGE", confidence=0.5, num_hands=4)
     controller = GestureController(sensitivity=sensitivity, smoothing=ran)
 
     window = "NonMouse"
@@ -65,9 +65,10 @@ def main(cam_index: int, mode: int, sensitivity: float) -> None:
             h, w = frame.shape[:2]
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             hands = detector.detect(rgb)
+            closest_hand = detector.get_closest_hand(hands)
 
-            if hands:
-                controller.process(hands[0], frame, w, h)
+            if closest_hand:
+                controller.process(closest_hand, frame, w, h)
             else:
                 controller.reset()
                 cv2.putText(frame, "Aguardando mao...", (20, 450),

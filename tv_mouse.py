@@ -17,7 +17,7 @@ args = parser.parse_args()
 
 def main() -> None:
     cam = ThreadedCamera(index=args.camera, width=1280, height=720).start()
-    detector = HandDetector(mode="VIDEO", confidence=0.4)
+    detector = HandDetector(mode="VIDEO", confidence=0.4, num_hands=4)
     controller = GestureController(sensitivity=args.kando, smoothing=args.smoothing)   
 
     print("NonMouse iniciado. Pressione Ctrl+C para encerrar.")
@@ -36,8 +36,9 @@ def main() -> None:
             timestamp_ms = int(t0 * 1000)
 
             hands = detector.detect(rgb, timestamp_ms)
-            if hands:
-                controller.process(hands[0], frame, w, h)
+            closest_hand = detector.get_closest_hand(hands)
+            if closest_hand:
+                controller.process(closest_hand, frame, w, h)
             else:
                 controller.reset()
 

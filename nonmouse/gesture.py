@@ -112,11 +112,36 @@ class GestureController:
             return True
         return False
 
-    def process(self, landmarks: list[Landmark], image: np.ndarray,
-                image_width: int, image_height: int, hand_id: str = "Right") -> None:
+    def process(self, landmarks: list[Landmark] | None = None, image: np.ndarray | None = None,
+                image_width: int = 0, image_height: int = 0, hand_id: str = "Right") -> None:
         """Processa landmarks e executa acoes de mouse sem tremores e com alta precisao."""
         now = time.perf_counter()
-        draw_landmarks(image, landmarks, image_width, image_height)
+
+        # VERIFICA TIMEOUT DE INATIVIDADE NO INÍCIO/CONFIGURAÇÃO (INDEPENDENTE DE TER MÃO OU NÃO)
+        if not self._locked:
+            if now - self._last_action_time > self._inactivity_timeout:
+                self.lock()
+
+        # Se não houver mão no frame (landmarks é None ou lista vazia)
+        if not landmarks:
+            if image is not None:
+                if self._locked:
+                    try:
+                        cv2.putText(image, "MOUSE TRAVADO - Gire a mao para destravar", (20, 80),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    except Exception:
+                        pass
+                else:
+                    remaining = self.get_remaining_unlocked_time()
+                    try:
+                        cv2.putText(image, f"MOUSE DESTRAVADO [{self._unlocked_hand_id}] - Trava em: {remaining:.1f}s", (20, 80),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    except Exception:
+                        pass
+            return
+
+        if image is not None:
+            draw_landmarks(image, landmarks, image_width, image_height)
         lm = landmarks
 
         # 0. DETECCAO DE ROTACAO PARA DESTRAVAR
@@ -124,27 +149,24 @@ class GestureController:
         if rotation_detected:
             self.trigger(hand_id)
 
-        # 0.1 VERIFICA TIMEOUT DE INATIVIDADE (10 SEGUNDOS SEM ACAO)
-        if not self._locked:
-            if now - self._last_action_time > self._inactivity_timeout:
-                self.lock()
-
         # SE ESTIVER TRAVADO, NAO MOVER E EXIBIR INDICADOR VISUAL DE TRAVA
         if self._locked:
-            try:
-                cv2.putText(image, "MOUSE TRAVADO - Gire a mao para destravar", (20, 80),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            except Exception:
-                pass
+            if image is not None:
+                try:
+                    cv2.putText(image, "MOUSE TRAVADO - Gire a mao para destravar", (20, 80),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                except Exception:
+                    pass
             return
 
         # SE ESTIVER DESTRAVADO, GARANTE QUE APENAS A MAO QUE DESTRAVOU PODE MEXER
         if hand_id != self._unlocked_hand_id:
-            try:
-                cv2.putText(image, f"Mao ignorada (apenas {self._unlocked_hand_id} controla)", (20, 110),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-            except Exception:
-                pass
+            if image is not None:
+                try:
+                    cv2.putText(image, f"Mao ignorada (apenas {self._unlocked_hand_id} controla)", (20, 110),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                except Exception:
+                    pass
             return
 
         # Tamanho de referencia da mao (pulso lm[0] ate a base do medio lm[9])
@@ -205,7 +227,8 @@ class GestureController:
         # Quando a pessoa clica, evita que a trepidação dos dedos desloque o ponteiro
         if self._now_click == 1:
             dx, dy = 0.0, 0.0
-            draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 20, (0, 250, 250))
+            if image is not None:
+                draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 20, (0, 250, 250))
         else:
             dx = self._sensitivity * (self._curr_x - self._pre_x) * image_width
             dy = self._sensitivity * (self._curr_y - self._pre_y) * image_height
@@ -229,7 +252,8 @@ class GestureController:
                     self._mouse.move(dx, dy)
                 except Exception:
                     pass
-            draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 8, (250, 0, 0))
+            if image is not None:
+                draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 8, (250, 0, 0))
 
         # Ações do botão do mouse (Pressionar / Soltar)
         if self._now_click == 1 and self._now_click != self._pre_click:
@@ -255,18 +279,32 @@ class GestureController:
 
         if is_scroll:
             self._mouse.scroll(0, -dy / 40)
-            draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 20, (0, 0, 0))
+            if image is not None:
+                draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 20, (0, 0, 0))
 
         self._pre_click = self._now_click
         self._pre_right = self._right_click
 
-        # Exibe status destravado com contador do tempo restante de inatividade
-        remaining = self.get_remaining_unlocked_time()
-        try:
-            cv2.putText(image, f"MOUSE DESTRAVADO [{hand_id}] - Trava em: {remaining:.1f}s", (20, 80),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        except Exception:
-            pass
+        # VERIFICA TIMEOUT DE INATIVIDADE NO FINAL DO PROCESS (INDEPENDENTE DE TER MÃO OU NÃO)
+        if not self._locked:
+            if time.perf_counter() - self._last_action_time > self._inactivity_timeout:
+                self.lock()
+
+        # Exibe status destravado com contador do tempo restante de inatividade no final do process
+        if image is not None:
+            if self._locked:
+                try:
+                    cv2.putText(image, "MOUSE TRAVADO - Gire a mao para destravar", (20, 80),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                except Exception:
+                    pass
+            else:
+                remaining = self.get_remaining_unlocked_time()
+                try:
+                    cv2.putText(image, f"MOUSE DESTRAVADO [{hand_id}] - Trava em: {remaining:.1f}s", (20, 80),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                except Exception:
+                    pass
 
     def reset(self) -> None:
         self._initialized = False

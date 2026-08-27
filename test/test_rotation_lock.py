@@ -75,6 +75,22 @@ def test_inactivity_timeout_relocks():
     assert controller.get_unlocked_hand() == "None" or controller.get_unlocked_hand() is None
 
 
+def test_no_hand_inactivity_relocks():
+    controller = GestureController()
+    controller._inactivity_timeout = 0.2
+    controller.trigger(hand_id="Right")
+
+    assert controller.is_locked() is False
+    time.sleep(0.3)
+
+    dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
+    # Processa sem nenhuma mão no frame (landmarks = None)
+    controller.process(None, dummy_img, 640, 480)
+
+    assert controller.is_locked() is True
+    assert controller.get_unlocked_hand() is None
+
+
 if __name__ == "__main__":
     test_initial_state_is_locked()
     print("[PASS] test_initial_state_is_locked")
@@ -86,4 +102,6 @@ if __name__ == "__main__":
     print("[PASS] test_other_hand_ignored_when_unlocked")
     test_inactivity_timeout_relocks()
     print("[PASS] test_inactivity_timeout_relocks")
+    test_no_hand_inactivity_relocks()
+    print("[PASS] test_no_hand_inactivity_relocks")
     print("ALL TESTS PASSED SUCCESSFULLY!")

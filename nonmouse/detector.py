@@ -58,15 +58,27 @@ class HandDetector:
 
     def detect(self, frame_rgb: np.ndarray, timestamp_ms: int = 0) -> list[list[Landmark]]:
         """Retorna lista de maos, cada mao e uma lista de 21 Landmarks."""
+        hands_with_labels = self.detect_with_handedness(frame_rgb, timestamp_ms)
+        return [lms for lms, _ in hands_with_labels]
+
+    def detect_with_handedness(
+        self, frame_rgb: np.ndarray, timestamp_ms: int = 0
+    ) -> list[tuple[list[Landmark], str]]:
+        """Retorna lista de tuplas (landmarks, handedness_label)."""
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
         if self._mode == "VIDEO":
             result = self._detector.detect_for_video(mp_image, timestamp_ms)
         else:
             result = self._detector.detect(mp_image)
-        return [
-            [Landmark(p.x, p.y, p.z) for p in hand]
-            for hand in result.hand_landmarks
-        ]
+
+        hands = []
+        for i, hand in enumerate(result.hand_landmarks):
+            label = "Right"
+            if result.handedness and i < len(result.handedness) and result.handedness[i]:
+                label = result.handedness[i][0].category_name
+            lms = [Landmark(p.x, p.y, p.z) for p in hand]
+            hands.append((lms, label))
+        return hands
 
     def get_closest_hand(self, hands: list[list[Landmark]]) -> list[Landmark] | None:
         """Retorna a mao mais proxima da camera (maior tamanho aparente no frame)."""
@@ -74,8 +86,29 @@ class HandDetector:
             return None
         return max(hands, key=lambda hand: _distance(hand[0], hand[9]))
 
+    def get_closest_hand_with_label(
+        self, hands_with_label: list[tuple[list[Landmark], str]]
+    ) -> tuple[list[Landmark], str] | tuple[None, None]:
+        """Retorna (landmarks, label) da mao mais proxima da camera."""
+        if not hands_with_label:
+            return None, None
+        return max(hands_with_label, key=lambda pair: _distance(pair[0][0], pair[0][9]))
+
     def distance(self, a: Landmark, b: Landmark) -> float:
         return _distance(a, b)
 
     def close(self) -> None:
         self._detector.close()
+
+    def trigger(
+        self,
+        hand: list[Landmark] | None = None,
+        controller: any = None,
+        hand_id: str = "Right",
+    ) -> None:
+        """
+        Ao identificar o movimento de rotação da mão o método trigger destrava o mouse,
+        permitindo que o usuário mova o cursor com a mão.
+        """
+        if controller is not None:
+            controller.trigger(hand_id)

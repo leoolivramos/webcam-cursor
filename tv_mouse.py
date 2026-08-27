@@ -35,12 +35,13 @@ def main() -> None:
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             timestamp_ms = int(t0 * 1000)
 
-            hands = detector.detect(rgb, timestamp_ms)
-            closest_hand = detector.get_closest_hand(hands)
-            if closest_hand:
-                controller.process(closest_hand, frame, w, h)
+            hands_with_label = detector.detect_with_handedness(rgb, timestamp_ms)
+            if hands_with_label:
+                for hand_lms, hand_id in hands_with_label:
+                    controller.process(hand_lms, frame, w, h, hand_id=hand_id)
             else:
                 controller.reset()
+                controller.process(None, frame, w, h)
 
             if not args.headless:
                 elapsed = time.perf_counter() - t0

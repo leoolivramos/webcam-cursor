@@ -64,13 +64,14 @@ def main(cam_index: int, mode: int, sensitivity: float) -> None:
 
             h, w = frame.shape[:2]
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            hands = detector.detect(rgb)
-            closest_hand = detector.get_closest_hand(hands)
+            hands_with_label = detector.detect_with_handedness(rgb)
 
-            if closest_hand:
-                controller.process(closest_hand, frame, w, h)
+            if hands_with_label:
+                for hand_lms, hand_id in hands_with_label:
+                    controller.process(hand_lms, frame, w, h, hand_id=hand_id)
             else:
                 controller.reset()
+                controller.process(None, frame, w, h)
                 cv2.putText(frame, "Aguardando mao...", (20, 450),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 

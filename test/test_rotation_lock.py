@@ -91,6 +91,67 @@ def test_no_hand_inactivity_relocks():
     assert controller.get_unlocked_hand() is None
 
 
+def create_palm_up_hand(wrist_x: float = 0.5, wrist_y: float = 0.7) -> list[Landmark]:
+    """Cria uma mão com a palma voltada para a câmera (dedos mais altos que o pulso)."""
+    wrist = Landmark(wrist_x, wrist_y, 0.0)
+    landmarks = [wrist] + [Landmark(wrist_x, wrist_y, 0.0)] * 20
+    landmarks[9] = Landmark(wrist_x, wrist_y - 0.12, 0.0)
+    landmarks[8] = Landmark(wrist_x, wrist_y - 0.20, 0.0)
+    landmarks[5] = Landmark(wrist_x - 0.04, wrist_y - 0.08, 0.0)
+    landmarks[17] = Landmark(wrist_x + 0.09, wrist_y - 0.10, 0.0)
+    landmarks[0] = wrist
+    return landmarks
+
+
+def create_flat_hand(wrist_x: float = 0.5, wrist_y: float = 0.7) -> list[Landmark]:
+    """Cria uma mão sem palma levantada, com dedos na mesma altura ou abaixo do pulso."""
+    wrist = Landmark(wrist_x, wrist_y, 0.0)
+    landmarks = [wrist] + [Landmark(wrist_x, wrist_y, 0.0)] * 20
+    landmarks[9] = Landmark(wrist_x, wrist_y + 0.12, 0.0)
+    landmarks[8] = Landmark(wrist_x, wrist_y + 0.18, 0.0)
+    landmarks[5] = Landmark(wrist_x - 0.04, wrist_y + 0.10, 0.0)
+    landmarks[17] = Landmark(wrist_x + 0.09, wrist_y + 0.12, 0.0)
+    return landmarks
+
+
+def test_active_hand_is_selected_by_palm_up_priority():
+    controller = GestureController()
+    palm_up_hand = create_palm_up_hand(wrist_x=0.25, wrist_y=0.65)
+    flat_hand = create_flat_hand(wrist_x=0.75, wrist_y=0.72)
+
+    active = controller.select_active_hand([
+        (flat_hand, "Left"),
+        (palm_up_hand, "Right"),
+    ])
+
+    assert active is not None
+    assert active[1] == "Right"
+
+
+def test_active_hand_stays_stable_when_multiple_hands_are_visible():
+    controller = GestureController()
+    controller.trigger(hand_id="Right")
+
+    palm_up_hand = create_palm_up_hand(wrist_x=0.25, wrist_y=0.65)
+    flat_hand = create_flat_hand(wrist_x=0.75, wrist_y=0.72)
+
+    active = controller.select_active_hand([
+        (flat_hand, "Left"),
+        (palm_up_hand, "Right"),
+    ])
+
+    assert active is not None
+    assert active[1] == "Right"
+
+    active = controller.select_active_hand([
+        (flat_hand, "Left"),
+        (flat_hand, "Right"),
+    ])
+
+    assert active is not None
+    assert active[1] == "Right"
+
+
 if __name__ == "__main__":
     test_initial_state_is_locked()
     print("[PASS] test_initial_state_is_locked")

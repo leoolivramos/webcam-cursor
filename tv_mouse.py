@@ -36,9 +36,10 @@ def main() -> None:
             timestamp_ms = int(t0 * 1000)
 
             hands_with_label = detector.detect_with_handedness(rgb, timestamp_ms)
-            if hands_with_label:
-                for hand_lms, hand_id in hands_with_label:
-                    controller.process(hand_lms, frame, w, h, hand_id=hand_id)
+            active_hand = controller.select_active_hand(hands_with_label)
+            if active_hand is not None:
+                hand_lms, hand_id = active_hand
+                controller.process(hand_lms, frame, w, h, hand_id=hand_id)
             else:
                 controller.reset()
                 controller.process(None, frame, w, h)

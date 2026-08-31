@@ -65,14 +65,15 @@ def main(cam_index: int, mode: int, sensitivity: float) -> None:
             h, w = frame.shape[:2]
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             hands_with_label = detector.detect_with_handedness(rgb)
+            active_hand = controller.select_active_hand(hands_with_label)
 
-            if hands_with_label:
-                for hand_lms, hand_id in hands_with_label:
-                    controller.process(hand_lms, frame, w, h, hand_id=hand_id)
+            if active_hand is not None:
+                hand_lms, hand_id = active_hand
+                controller.process(hand_lms, frame, w, h, hand_id=hand_id)
             else:
                 controller.reset()
                 controller.process(None, frame, w, h)
-                cv2.putText(frame, "Aguardando mao...", (20, 450),
+                cv2.putText(frame, "Aguardando mao com palma levantada...", (20, 450),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
             elapsed = time.perf_counter() - t0

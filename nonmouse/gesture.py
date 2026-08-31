@@ -70,6 +70,45 @@ class GestureController:
         return max(0.0, self._inactivity_timeout - elapsed)
 
     @staticmethod
+    def _palm_up_score(lm: list[Landmark]) -> float:
+        """Pontua a probabilidade de a mão estar com a palma levantada.
+        Valores positivos indicam dedos mais altos que o pulso (palma voltada para a câmera).
+        """
+        wrist = lm[0]
+        tip_ys = [lm[i].y for i in (8, 12, 16, 20)]
+        knuckle_ys = [lm[i].y for i in (5, 9, 13, 17)]
+        avg_tip_y = float(np.mean(tip_ys)) if tip_ys else wrist.y
+        avg_knuckle_y = float(np.mean(knuckle_ys)) if knuckle_ys else wrist.y
+        return float((wrist.y - avg_tip_y) + 0.35 * (avg_knuckle_y - avg_tip_y))
+
+    def select_active_hand(
+        self,
+        hands_with_label: list[tuple[list[Landmark], str]],
+    ) -> tuple[list[Landmark], str] | None:
+        """Seleciona a única mão ativa, priorizando a palma levantada e mantendo a mão já desbloqueada."""
+        if not hands_with_label:
+            return None
+
+        if self._unlocked_hand_id is not None:
+            preferred = [
+                (lms, label)
+                for lms, label in hands_with_label
+                if label == self._unlocked_hand_id
+            ]
+            if preferred:
+                return max(preferred, key=lambda pair: self._palm_up_score(pair[0]))
+
+        palm_candidates = [
+            (lms, label)
+            for lms, label in hands_with_label
+            if self._palm_up_score(lms) > 0.02
+        ]
+        if palm_candidates:
+            return max(palm_candidates, key=lambda pair: self._palm_up_score(pair[0]))
+
+        return None
+
+    @staticmethod
     def calc_hand_angle(lm: list[Landmark]) -> float:
         """Calcula o angulo de orientacao da mao (vetor pulso lm[0] ate base do medio lm[9])."""
         dx = lm[9].x - lm[0].x

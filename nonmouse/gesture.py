@@ -37,13 +37,7 @@ class GestureController:
 
         self._now_click = 0
         self._pre_click = 0
-        self._right_click = 0
-        self._pre_right = 0
-        self._double_click = 0
-        self._k = 0
-        self._h = 0
         self._click_start = float("inf")
-        self._double_start = float("inf")
 
         # Trava de seguranca do mouse
         self._locked: bool = True
@@ -178,9 +172,6 @@ class GestureController:
             self._safe_distance(lm[4], lm[6])
         ) / hand_size
 
-        # Distancia de espalhamento dos dedos (para controle de movimento vs scroll)
-        spread = self._safe_distance(lm[8], lm[12]) / hand_size
-
         raw_x = lm[8].x
         raw_y = lm[8].y
 
@@ -205,10 +196,8 @@ class GestureController:
         dist_moved = float(math.hypot(raw_x - self._pre_raw_x, raw_y - self._pre_raw_y))
         self._pre_raw_x, self._pre_raw_y = raw_x, raw_y
 
-        is_scroll = (lm[8].y - lm[5].y) > -0.04
-
-        # Atualiza timestamp de acao quando houver movimento significativo, clique ou scroll
-        if dist_moved > 0.003 or self._now_click == 1 or is_scroll or rotation_detected:
+        # Atualiza timestamp de acao quando houver movimento significativo ou clique
+        if dist_moved > 0.003 or self._now_click == 1 or rotation_detected:
             self._last_action_time = now
 
         # Deadzone: Pequenos ruídos de câmera não movem o cursor
@@ -243,10 +232,8 @@ class GestureController:
         dx = max(self._virt_x - px, min(self._screen_w - px, dx))
         dy = max(self._virt_y - py, min(self._screen_h - py, dy))
 
-        self._right_click = 0
-
-        # 5. MOVIMENTACAO E SCROLL
-        if not is_scroll and self._now_click == 0:
+        # 5. MOVIMENTACAO DO CURSOR
+        if self._now_click == 0:
             if np.hypot(dx, dy) > 0.5:
                 try:
                     self._mouse.move(dx, dy)
@@ -255,37 +242,15 @@ class GestureController:
             if image is not None:
                 draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 8, (250, 0, 0))
 
-        # Ações do botão do mouse (Pressionar / Soltar)
+        # Ações do botão esquerdo do mouse (Pressionar / Soltar)
         if self._now_click == 1 and self._now_click != self._pre_click:
-            if self._h == 1:
-                self._h = 0
-            else:
-                self._mouse.press(Button.left)
+            self._mouse.press(Button.left)
 
         if self._now_click == 0 and self._now_click != self._pre_click:
             self._mouse.release(Button.left)
-            self._k = 0
-            if self._double_click == 0:
-                self._double_start = time.perf_counter()
-                self._double_click += 1
-            if 10 * (time.perf_counter() - self._double_start) > 5 and self._double_click == 1:
-                self._mouse.click(Button.left, 2)
-                self._double_click = 0
-
-        if self._right_click == 1 and self._right_click != self._pre_right:
-            self._mouse.press(Button.right)
-            self._mouse.release(Button.right)
-            self._h = 1
-
-        if is_scroll:
-            self._mouse.scroll(0, -dy / 40)
-            if image is not None:
-                draw_circle(image, lm[8].x * image_width, lm[8].y * image_height, 20, (0, 0, 0))
 
         self._pre_click = self._now_click
-        self._pre_right = self._right_click
 
-        # VERIFICA TIMEOUT DE INATIVIDADE NO FINAL DO PROCESS (INDEPENDENTE DE TER MÃO OU NÃO)
         if not self._locked:
             if time.perf_counter() - self._last_action_time > self._inactivity_timeout:
                 self.lock()

@@ -43,7 +43,7 @@ def main(cam_index: int, mode: int, sensitivity: float) -> None:
     cfps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
     ran = max(cfps // 10, 1)
 
-    detector = HandDetector(mode="IMAGE", confidence=0.5, num_hands=4)
+    detector = HandDetector(mode="IMAGE", confidence=0.7, num_hands=1)
     controller = GestureController(sensitivity=sensitivity, smoothing=ran)
 
     window = "NonMouse"
